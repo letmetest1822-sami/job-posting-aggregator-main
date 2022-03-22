@@ -1,0 +1,42 @@
+# This workflow will build a Java project with Maven
+# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
+
+name: Aggregate job search report
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 8 * * *"
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up JDK 11
+      uses: actions/setup-java@v2
+      with:
+        java-version: '11'
+        distribution: 'adopt'
+        
+    - name: Build with Maven
+      run: mvn verify
+      
+    - name: Copy report to server
+      if: ${{ always() }}
+      uses: easingthemes/ssh-deploy@v2.1.5
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+        SOURCE: "/src/test/resources/results1.xslx"
+        REMOTE_HOST: ${{ secrets.HOST }}
+        REMOTE_USER: ${{ secrets.SSH_USER }}
+        TARGET: /var/www/html/job_search/${{ steps.current-time.outputs.time }}-github_runid-${{ github.run_number }}  
+      
+    - name: Archive report
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: serenity-report
+        path: ./src/test/resources/results1.xslx
